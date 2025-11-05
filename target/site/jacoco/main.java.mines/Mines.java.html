@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Mines.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">JeuMines</a> &gt; <a href="index.source.html" class="el_package">main.java.mines</a> &gt; <span class="el_source">Mines.java</span></div><h1>Mines.java</h1><pre class="source lang-java linenums">package main.java.mines;
+
+import java.awt.BorderLayout;
+
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+
+// Source: http://zetcode.com/tutorials/javagamestutorial/minesweeper/
+
+public class Mines extends JFrame {
+	private static final long serialVersionUID = 4772165125287256837L;
+	
+<span class="nc" id="L13">	private final int WIDTH = 250;</span>
+<span class="nc" id="L14">    private final int HEIGHT = 290;</span>
+
+    private JLabel statusbar;
+    
+<span class="nc" id="L18">    public Mines() {</span>
+
+<span class="nc" id="L20">        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);</span>
+<span class="nc" id="L21">        setSize(WIDTH, HEIGHT);</span>
+<span class="nc" id="L22">        setLocationRelativeTo(null);</span>
+<span class="nc" id="L23">        setTitle(&quot;Minesweeper&quot;);</span>
+
+<span class="nc" id="L25">        statusbar = new JLabel(&quot;&quot;);</span>
+<span class="nc" id="L26">        add(statusbar, BorderLayout.SOUTH);</span>
+
+<span class="nc" id="L28">        add(new Board(statusbar));</span>
+
+<span class="nc" id="L30">        setResizable(false);</span>
+<span class="nc" id="L31">        setVisible(true);</span>
+<span class="nc" id="L32">    }</span>
+    
+    public static void main(String[] args) {
+<span class="nc" id="L35">        new Mines();</span>
+<span class="nc" id="L36">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
