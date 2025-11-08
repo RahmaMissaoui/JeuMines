@@ -1,4 +1,4 @@
-package main.java.mines;
+package mines;
 
 import java.awt.BorderLayout;
 
