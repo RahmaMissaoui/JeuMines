@@ -43,7 +43,7 @@ public class Board extends JPanel {
     private int minesLeft;
     private transient Image[] img;
 
-    private int mines = 40;
+    private int mines = 1;
     private int rows  = 16;
     private int cols  = 16;
     private int allCells;
@@ -57,6 +57,10 @@ public class Board extends JPanel {
     private boolean gameWon = false;
     private boolean gameEndDetected = false;
 
+    /* --------------------------------------------------------------------- */
+    private static final String PLAYER_PREFIX = "Player ";
+    private static final String FLAG_LINE_TEMPLATE = "%s flags: %d";
+    private static final String WIN_DRAW_MESSAGE_TEMPLATE = "%s\n%s\n%s";
     /* --------------------------------------------------------------------- */
     public Board(JLabel statusbar) {
         this.statusbar = statusbar;
@@ -85,7 +89,7 @@ public class Board extends JPanel {
         inGame = true;
         gameWon = false;
         gameEndDetected = false;
-        mines = 40;
+        mines = 40;  // Changed from 40 to 1
         rows = 16;
         cols = 16;
         allCells = rows * cols;
@@ -104,7 +108,7 @@ public class Board extends JPanel {
     }
 
     private String getStatusText() {
-        return "Player " + (currentPlayer + 1) + "'s turn | Mines left: " + minesLeft +
+        return PLAYER_PREFIX + (currentPlayer + 1) + "'s turn | Mines left: " + minesLeft +
                " | Flags: P1=" + playerFlags[0] + " P2=" + playerFlags[1];
     }
 
@@ -183,39 +187,42 @@ public class Board extends JPanel {
         if (!inGame && !gameEndDetected) {
             gameEndDetected = true;
             
-            javax.swing.SwingUtilities.invokeLater(() -> {
-                String message;
-                String title;
-                
-                if (gameWon) {
-                    int p1 = playerFlags[0], p2 = playerFlags[1];
-                    if (p1 > p2) {
-                        message = "Player 1 wins!\n\nPlayer 1 flags: " + p1 + "\nPlayer 2 flags: " + p2;
-                        title = "Victory!";
-                    } else if (p2 > p1) {
-                        message = "Player 2 wins!\n\nPlayer 1 flags: " + p1 + "\nPlayer 2 flags: " + p2;
-                        title = "Victory!";
-                    } else {
-                        message = "It's a draw!\n\nPlayer 1 flags: " + p1 + "\nPlayer 2 flags: " + p2;
-                        title = "Draw!";
-                    }
-                } else {
-                    int loser = currentPlayer;
-                    int winner = 1 - loser;
-                    message = "Player " + (loser + 1) + " hit a mine!\nPlayer " + (winner + 1) + " wins!";
-                    title = "Game Over";
-                }
-                
-                JOptionPane.showMessageDialog(this, message, title, JOptionPane.INFORMATION_MESSAGE);
-            });
+            // Show popup immediately without invokeLater
+            String message;
+            String title = "Game Over";
+            
+            if (gameWon) {
+                int p1 = playerFlags[0], p2 = playerFlags[1];
+                message = buildEndGameMessage(p1, p2);
+                title = "Game Won!";
+            } else {
+                int loser = currentPlayer;
+                int winner = 1 - loser;
+                message = PLAYER_PREFIX + (loser + 1) + " hit a mine!\n" + PLAYER_PREFIX + (winner + 1) + " wins!";
+                title = "Game Over - Mine Hit!";
+            }
+            
+            JOptionPane.showMessageDialog(this, message, title, JOptionPane.INFORMATION_MESSAGE);
         }
     }
+    
+    private String buildEndGameMessage(int p1, int p2) {
+        String result = p1 > p2 ? "Player 1 wins!"
+                      : p2 > p1 ? "Player 2 wins!"
+                      : "It's a draw!";
 
+        String p1Line = String.format(FLAG_LINE_TEMPLATE, "Player 1", p1);
+        String p2Line = String.format(FLAG_LINE_TEMPLATE, "Player 2", p2);
+
+        return String.format(WIN_DRAW_MESSAGE_TEMPLATE, result, p1Line, p2Line);
+    }
     /* --------------------------------------------------------------------- */
     @Override
     public void paint(Graphics g) {
-        int uncoveredSafe = 0;
-        int correctlyFlagged = 0;
+        int uncoveredSafeCells = 0;
+        int correctlyFlaggedMines = 0;
+        boolean hasWrongFlags = false;
+        int totalSafeCells = allCells - mines;
 
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
@@ -223,16 +230,19 @@ public class Board extends JPanel {
                 int cell = field[idx];
                 int marker = markers[idx];
 
-                // Count for win condition
-                if (cell > MINE_CELL && cell < COVERED_MINE_CELL) {
-                    uncoveredSafe++; // still covered safe cell
-                } else if (cell == COVERED_MINE_CELL && marker != -1) {
-                    correctlyFlagged++;
+                // Count uncovered safe cells (0-8 are revealed safe cells)
+                if (cell >= EMPTY_CELL && cell <= 8) {
+                    uncoveredSafeCells++;
                 }
 
-                // Lose condition
-                if (inGame && cell == MINE_CELL) {
-                    inGame = false;
+                // Count correctly flagged mines
+                if (cell == MARKED_MINE_CELL) {
+                    correctlyFlaggedMines++;
+                }
+
+                // Check for wrong flags (flags on safe cells)
+                if (cell > COVERED_MINE_CELL + MARK_FOR_CELL) {
+                    hasWrongFlags = true;
                 }
 
                 // Determine image to draw
@@ -274,13 +284,13 @@ public class Board extends JPanel {
             }
         }
 
-        // Win condition: all safe cells revealed AND all mines correctly flagged
-        if (inGame && uncoveredSafe == 0 && correctlyFlagged == mines) {
+        // Win condition: all safe cells revealed AND all mines correctly flagged AND no wrong flags
+        if (inGame && uncoveredSafeCells == totalSafeCells && correctlyFlaggedMines == mines && !hasWrongFlags) {
             inGame = false;
             gameWon = true;
         }
 
-        // Update status bar
+        // Update status bar and check for game end
         if (!inGame) {
             if (gameWon) {
                 int p1 = playerFlags[0], p2 = playerFlags[1];
@@ -290,7 +300,7 @@ public class Board extends JPanel {
             } else {
                 int loser = currentPlayer;
                 int winner = 1 - loser;
-                statusbar.setText("Player " + (loser + 1) + " hit a mine! Player " + (winner + 1) + " wins!");
+                statusbar.setText(PLAYER_PREFIX + (loser + 1) + " hit a mine! " + PLAYER_PREFIX + (winner + 1) + " wins!");
             }
             
             checkGameEnd();
@@ -369,14 +379,17 @@ public class Board extends JPanel {
                 repaintNeeded = true;
                 validMove = true;
 
+                // Check if player hit a mine
                 if (field[pos] == MINE_CELL) {
                     inGame = false;
+                    // Don't switch players - the current player lost
+                    validMove = false; // Prevent player switch
                 } else if (field[pos] == EMPTY_CELL) {
                     findEmptyCells(pos);
                 }
             }
 
-            // Only switch player on valid move
+            // Only switch player on valid move that doesn't end the game
             if (validMove && inGame) {
                 currentPlayer = 1 - currentPlayer;
             }
