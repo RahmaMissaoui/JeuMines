@@ -1,6 +1,7 @@
 package mines;
 
 import org.junit.jupiter.api.BeforeEach;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import javax.swing.JLabel;
@@ -11,27 +12,28 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 
+
 import static org.junit.jupiter.api.Assertions.*;
 
-public class BoardTest {
+class BoardTest {
 
     private Board board;
     private JLabel statusbar;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         statusbar = new JLabel();
         board = new Board(statusbar);
     }
 
     @AfterEach
-    public void tearDown() {
+    void tearDown() {
         board = null;
         statusbar = null;
     }
 
     @Test
-    public void testInitialState() {
+    void testInitialState() {
         assertTrue(board.isInGame(), "Game should be in progress initially");
         assertEquals(0, board.getCurrentPlayer(), "Initial player should be 0");
         assertEquals(40, board.getMinesLeft(), "Mines left should be 40 initially");
@@ -46,7 +48,7 @@ public class BoardTest {
     }
 
     @Test
-    public void testIsValidCell() {
+    void testIsValidCell() {
         // Test valid cells
         assertTrue(board.isValidCell(0, 0), "Cell (0,0) should be valid");
         assertTrue(board.isValidCell(15, 15), "Cell (15,15) should be valid");
@@ -61,7 +63,7 @@ public class BoardTest {
     }
 
     @Test
-    public void testIncrementNeighbors() throws Exception {
+    void testIncrementNeighbors() throws Exception {
         // Use reflection to test private method
         Method incrementNeighbors = Board.class.getDeclaredMethod("incrementNeighbors", int.class);
         incrementNeighbors.setAccessible(true);
@@ -98,7 +100,7 @@ public class BoardTest {
     }
 
     @Test
-    public void testFindEmptyCells() {
+    void testFindEmptyCells() {
         // Create a test field with an empty area
         int[] testField = new int[256];
         for (int i = 0; i < testField.length; i++) {
@@ -128,7 +130,7 @@ public class BoardTest {
     }
 
     @Test
-    public void testPlayerSwitching() {
+    void testPlayerSwitching() {
         // Test initial player
         assertEquals(0, board.getCurrentPlayer(), "Initial player should be 0");
        
@@ -141,7 +143,7 @@ public class BoardTest {
     }
 
     @Test
-    public void testNewGameReset() {
+    void testNewGameReset() {
         // First modify some state
         int[] modifiedField = new int[256];
         for (int i = 0; i < modifiedField.length; i++) {
@@ -163,14 +165,14 @@ public class BoardTest {
     }
 
     @Test
-    public void testGameConstants() {
+    void testGameConstants() {
         // Test that constants have expected values
         assertEquals(10, Board.getCoverForCell(), "COVER_FOR_CELL should be 10");
         assertEquals(19, Board.getCoveredMineCell(), "COVERED_MINE_CELL should be 19");
     }
 
     @Test
-    public void testFieldAndMarkersArrays() {
+    void testFieldAndMarkersArrays() {
         int[] field = board.getField();
         int[] markers = board.getMarkers();
         
@@ -187,7 +189,7 @@ public class BoardTest {
     }
 
     @Test
-    public void testBoardDimensions() {
+    void testBoardDimensions() {
         assertEquals(16, board.getRows(), "Board should have 16 rows");
         assertEquals(16, board.getCols(), "Board should have 16 columns");
         assertEquals(256, board.getAllCells(), "Board should have 256 total cells");
@@ -197,7 +199,7 @@ public class BoardTest {
     }
 
     @Test
-    public void testMinePlacement() {
+    void testMinePlacement() {
         int[] field = board.getField();
         
         int mineCount = 0;
@@ -211,7 +213,7 @@ public class BoardTest {
     }
 
     @Test
-    public void testNeighborCountingCompleteness() {
+    void testNeighborCountingCompleteness() {
         int[] field = board.getField();
         
         // Count how many cells have neighbor counts (values between 1-8 with cover)
@@ -232,7 +234,7 @@ public class BoardTest {
     }
 
     @Test
-    public void testGameStatePersistence() {
+    void testGameStatePersistence() {
         // Test that game state methods return consistent values
         boolean inGame = board.isInGame();
         int currentPlayer = board.getCurrentPlayer();
@@ -247,7 +249,7 @@ public class BoardTest {
     }
     
     @Test
-    public void testRevealTriggersFloodFillOnEmptyCells() {
+    void testRevealTriggersFloodFillOnEmptyCells() {
         int[] testField = new int[256];
         Arrays.fill(testField, Board.getCoverForCell()); // All covered
 
@@ -280,7 +282,7 @@ public class BoardTest {
     }
 
     @Test
-    public void testWinCondition_AllSafeRevealed_AllMinesFlaggedCorrectly() throws Exception {
+    void testWinCondition_AllSafeRevealed_AllMinesFlaggedCorrectly() throws Exception {
         // Use reflection to access private fields
         Field fieldField = Board.class.getDeclaredField("field");
         fieldField.setAccessible(true);
@@ -321,7 +323,7 @@ public class BoardTest {
     }
 
     @Test
-    public void testWinCondition_FailsIfWrongFlagExists() throws Exception {
+    void testWinCondition_FailsIfWrongFlagExists() throws Exception {
         Field fieldField = Board.class.getDeclaredField("field");
         fieldField.setAccessible(true);
         int[] field = (int[]) fieldField.get(board);
@@ -356,7 +358,7 @@ public class BoardTest {
         assertFalse(board.isGameWon(), "Game should not be won with wrong flags");
     }
     @Test
-    public void testGameOver_ShowsAllMinesAndWrongFlags() {
+    void testGameOver_ShowsAllMinesAndWrongFlags() {
         int[] testField = new int[256];
         Arrays.fill(testField, Board.getCoverForCell());
 
@@ -379,7 +381,7 @@ public class BoardTest {
     }
 
     @Test
-    public void testFlagAndUnflagByCurrentPlayerOnly() throws Exception {
+    void testFlagAndUnflagByCurrentPlayerOnly() throws Exception {
         int pos = 100;
 
         // Get direct access to private fields
@@ -431,7 +433,7 @@ public class BoardTest {
     }
 
     @Test
-    public void testCheckGameEnd_ShowsPopupOnWinAndLoss() {
+    void testCheckGameEnd_ShowsPopupOnWinAndLoss() {
         // Test loss
         board.setInGame(false);
         board.setGameWon(false);
@@ -448,7 +450,7 @@ public class BoardTest {
     }
 
     @Test
-    public void testCalculateDrawIndex_AllBranches() throws Exception {
+    void testCalculateDrawIndex_AllBranches() throws Exception {
         // Use reflection to test private method
         Method calcInGame = Board.class.getDeclaredMethod("calculateDrawIndexInGame", int.class, int.class);
         Method calcGameOver = Board.class.getDeclaredMethod("calculateDrawIndexGameOver", int.class, int.class);
@@ -486,13 +488,6 @@ public class BoardTest {
         simulateRightClick(board, 5, 5);
         assertEquals(initial, board.getMinesLeft());
     }
-//    private void simulateLeftClick(Board board, int row, int col) {
-//        int x = col * 15 + 7;
-//        int y = row * 15 + 7;
-//        MouseEvent e = new MouseEvent(board, MouseEvent.MOUSE_PRESSED,
-//                System.currentTimeMillis(), 0, x, y, 1, false, MouseEvent.BUTTON1);  // Fixed: BUTTON1 not BUITON1
-//        board.simulateMousePress(e);  // Fixed: simulateMousePress not simulateHousePress
-//    }
 
     private void simulateRightClick(Board board, int row, int col) {
         int x = col * 15 + 7;

@@ -4,7 +4,6 @@ import java.awt.Graphics;
 import java.awt.Image;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
 import java.util.Arrays;
 import java.security.SecureRandom;
 
@@ -13,10 +12,10 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
-public class Board extends JPanel {
+
+class Board extends JPanel {
 
     private static final long serialVersionUID = 6195235521361212179L;
-
     private static final int NUM_IMAGES = 15;
     private static final int CELL_SIZE = 15;
 
@@ -34,8 +33,16 @@ public class Board extends JPanel {
     private static final int DRAW_MARK_P2        = 13;
     private static final int DRAW_WRONG_MARK_P2  = 14;
 
+    private static final String PLAYER_PREFIX = "Player ";
+    private static final String FLAG_LINE_TEMPLATE = "%s flags: %d";
+    private static final String WIN_DRAW_MESSAGE_TEMPLATE = "%s\n%s\n%s";
+    private static final String HIT_A_MINE = " hit a mine! ";
+    private static final String WINS = " wins!";
+    private static final String GAME_WON = "Game won!";
+    private static final String GAME_OVER = "Game Over";
+
     private int[] field;
-    private int[] markers; // -1 = none, 0 = P1, 1 = P2
+    private int[] markers;
     private boolean inGame;
     private int minesLeft;
     private transient Image[] img;
@@ -53,10 +60,6 @@ public class Board extends JPanel {
     private boolean gameWon = false;
     private boolean gameEndDetected = false;
 
-    private static final String PLAYER_PREFIX = "Player ";
-    private static final String FLAG_LINE_TEMPLATE = "%s flags: %d";
-    private static final String WIN_DRAW_MESSAGE_TEMPLATE = "%s\n%s\n%s";
-
     public Board(JLabel statusbar) {
         this.statusbar = statusbar;
 
@@ -70,7 +73,7 @@ public class Board extends JPanel {
         newGame();
     }
 
-    public void newGame() {
+    void newGame() {
         initializeBoard();
         placeMinesRandomly();
         updateNeighborCounts();
@@ -126,16 +129,15 @@ public class Board extends JPanel {
     public void incrementNeighbors(int minePos) {
         int row = minePos / cols;
         int col = minePos % cols;
-
         for (int dr = -1; dr <= 1; dr++) {
             for (int dc = -1; dc <= 1; dc++) {
                 if (dr == 0 && dc == 0) continue;
                 int nr = row + dr;
                 int nc = col + dc;
                 if (isValidCell(nr, nc)) {
-                    int neighborPos = nr * cols + nc;
-                    if (field[neighborPos] != COVERED_MINE_CELL) {
-                        field[neighborPos]++;
+                    int np = nr * cols + nc;
+                    if (field[np] != COVERED_MINE_CELL) {
+                        field[np]++;
                     }
                 }
             }
@@ -152,22 +154,34 @@ public class Board extends JPanel {
 
         for (int dr = -1; dr <= 1; dr++) {
             for (int dc = -1; dc <= 1; dc++) {
+                // Only ONE continue allowed → this is the only one
                 if (dr == 0 && dc == 0) continue;
+
                 int nr = row + dr;
                 int nc = col + dc;
+
+                // Bounds check + validity in one guard
                 if (!isValidCell(nr, nc)) continue;
 
-                int neighbour = nr * cols + nc;
-                if (field[neighbour] > MINE_CELL && field[neighbour] < COVERED_MINE_CELL) {
-                    field[neighbour] -= COVER_FOR_CELL;
-                    if (field[neighbour] == EMPTY_CELL) {
-                        findEmptyCells(neighbour);
-                    }
+                int np = nr * cols + nc;
+                int value = field[np];
+
+                // Skip if already revealed or flagged
+                if (value < COVER_FOR_CELL || value >= MARKED_MINE_CELL) {
+                    continue;
                 }
+
+                // Reveal the cell
+                field[np] -= COVER_FOR_CELL;
+
+                // If it's empty (now 0), recurse into neighbors
+                if (field[np] == 0) {
+                    findEmptyCells(np);
+                }
+                // Numbered cells (1–8) are revealed but not recursed into → correct behavior
             }
         }
     }
-
     @Override
     public void paint(Graphics g) {
         int numCovers = 0;
@@ -179,15 +193,13 @@ public class Board extends JPanel {
 
                 if (inGame && cell == MINE_CELL) {
                     inGame = false;
+                    updateLossStatus();  // Trigger loss message
                 }
 
-                int drawIndex;
-                if (!inGame) {
-                    drawIndex = calculateDrawIndexGameOver(cell, marker);
-                } else {
-                    drawIndex = calculateDrawIndexInGame(cell, marker);
-                    if (drawIndex == DRAW_COVER) numCovers++;
-                }
+                int drawIndex = !inGame ? calculateDrawIndexGameOver(cell, marker)
+                                        : calculateDrawIndexInGame(cell, marker);
+                if (inGame && drawIndex == DRAW_COVER) numCovers++;
+
                 g.drawImage(img[drawIndex], j * CELL_SIZE, i * CELL_SIZE, this);
             }
         }
@@ -195,8 +207,7 @@ public class Board extends JPanel {
         if (numCovers == 0 && inGame) {
             BoardState state = analyzeBoardState();
             if (state.uncoveredSafeCells == state.totalSafeCells &&
-                state.correctlyFlaggedMines == mines &&
-                !state.hasWrongFlags) {
+                state.correctlyFlaggedMines == mines && !state.hasWrongFlags) {
                 inGame = false;
                 gameWon = true;
             }
@@ -204,7 +215,6 @@ public class Board extends JPanel {
 
         if (!inGame) {
             if (gameWon) updateWinStatus();
-            else updateLossStatus();
             checkGameEnd();
         } else {
             statusbar.setText(getStatusText());
@@ -222,70 +232,75 @@ public class Board extends JPanel {
     }
 
     private int calculateDrawIndexGameOver(int cell, int marker) {
-        if (cell == COVERED_MINE_CELL) {
-            return DRAW_MINE;
-        }
-        if (cell == MARKED_MINE_CELL) {
-            return marker == 0 ? DRAW_MARK_P1 : DRAW_MARK_P2;
-        }
-        if (cell >= 20 && cell <= 28) {
-            return marker == 0 ? DRAW_WRONG_MARK_P1 : DRAW_WRONG_MARK_P2;
-        }
-        if (cell > MINE_CELL) {
-            return DRAW_COVER;
-        }
+        if (cell == COVERED_MINE_CELL) return DRAW_MINE;
+        if (cell == MARKED_MINE_CELL) return marker == 0 ? DRAW_MARK_P1 : DRAW_MARK_P2;
+        if (cell >= 20 && cell <= 28) return marker == 0 ? DRAW_WRONG_MARK_P1 : DRAW_WRONG_MARK_P2;
+        if (cell > MINE_CELL) return DRAW_COVER;
         return cell;
     }
 
     private BoardState analyzeBoardState() {
-        BoardState state = new BoardState();
-        state.totalSafeCells = allCells - mines;
-
+        BoardState s = new BoardState();
+        s.totalSafeCells = allCells - mines;
         for (int i = 0; i < allCells; i++) {
             int cell = field[i];
             int marker = markers[i];
-
-            if (cell >= 0 && cell <= 8) {
-                state.uncoveredSafeCells++;
-            } else if (cell == MARKED_MINE_CELL) {
-                state.correctlyFlaggedMines++;
-            } else if (cell >= 20 && cell <= 28 && marker != -1) {
-                state.hasWrongFlags = true;
-            }
+            if (cell >= 0 && cell <= 8) s.uncoveredSafeCells++;
+            else if (cell == MARKED_MINE_CELL) s.correctlyFlaggedMines++;
+            else if (cell >= 20 && cell <= 28 && marker != -1) s.hasWrongFlags = true;
         }
-        return state;
+        return s;
     }
 
     private void updateWinStatus() {
-        int p1 = playerFlags[0], p2 = playerFlags[1];
-        String result = p1 > p2 ? " Player 1 wins!" : p2 > p1 ? " Player 2 wins!" : " It's a draw!";
-        statusbar.setText("Game won! P1: " + p1 + " | P2: " + p2 + result);
+        int p1 = playerFlags[0];
+        int p2 = playerFlags[1];
+        
+        String result;
+        if (p1 > p2) {
+            result = PLAYER_PREFIX + 1 + WINS;
+        } else if (p2 > p1) {
+            result = PLAYER_PREFIX + 2 + WINS;
+        } else {
+            result = "It's a draw!";
+        }
+        
+        statusbar.setText(GAME_WON + " P1: " + p1 + " | P2: " + p2 + result);
     }
 
     private void updateLossStatus() {
         int loser = currentPlayer;
-        int winner = 1 - loser;  // ← this was missing or wrong
-        statusbar.setText(PLAYER_PREFIX + (loser + 1) + " hit a mine! " +
-                         PLAYER_PREFIX + (winner + 1) + " wins!");
+        int winner = 1 - loser;
+        statusbar.setText(PLAYER_PREFIX + (loser + 1) + HIT_A_MINE +
+                         PLAYER_PREFIX + (winner + 1) + WINS);
     }
 
     void checkGameEnd() {
         if (!inGame && !gameEndDetected) {
             gameEndDetected = true;
             String message;
+
             if (gameWon) {
-                String p1Flags = String.format(FLAG_LINE_TEMPLATE, PLAYER_PREFIX + 1, playerFlags[0]);
-                String p2Flags = String.format(FLAG_LINE_TEMPLATE, PLAYER_PREFIX + 2, playerFlags[1]);
-                String result = playerFlags[0] > playerFlags[1] ? PLAYER_PREFIX + 1 + " wins!" :
-                               playerFlags[1] > playerFlags[0] ? PLAYER_PREFIX + 2 + " wins!" : "It's a draw!";
-                message = String.format(WIN_DRAW_MESSAGE_TEMPLATE, "Game won!", p1Flags, p2Flags) + "\n" + result;
+                String p1f = String.format(FLAG_LINE_TEMPLATE, PLAYER_PREFIX + 1, playerFlags[0]);
+                String p2f = String.format(FLAG_LINE_TEMPLATE, PLAYER_PREFIX + 2, playerFlags[1]);
+
+                String result;
+                if (playerFlags[0] > playerFlags[1]) {
+                    result = PLAYER_PREFIX + 1 + WINS;
+                } else if (playerFlags[1] > playerFlags[0]) {
+                    result = PLAYER_PREFIX + 2 + WINS;
+                } else {
+                    result = "It's a draw!";
+                }
+                message = String.format(WIN_DRAW_MESSAGE_TEMPLATE, GAME_WON, p1f, p2f) + "\n" + result;
             } else {
                 int loser = currentPlayer;
                 int winner = 1 - loser;
-                message = PLAYER_PREFIX + (loser + 1) + " hit a mine! " +
-                          PLAYER_PREFIX + (winner + 1) + " wins!";
+                message = PLAYER_PREFIX + (loser + 1) + HIT_A_MINE + "\n" +
+                          PLAYER_PREFIX + (winner + 1) + WINS;
             }
-            JOptionPane.showMessageDialog(this, message);
+
+            JOptionPane.showMessageDialog(this, message, GAME_OVER, JOptionPane.INFORMATION_MESSAGE);
         }
     }
 
@@ -296,7 +311,7 @@ public class Board extends JPanel {
         int totalSafeCells = 0;
     }
 
-    // Getters
+    // GETTERS & SETTERS
     public static int getCoverForCell() { return COVER_FOR_CELL; }
     public static int getCoveredMineCell() { return COVERED_MINE_CELL; }
     public static int getMarkForCell() { return MARK_FOR_CELL; }
@@ -314,91 +329,82 @@ public class Board extends JPanel {
     public int getRows() { return rows; }
     public int getCols() { return cols; }
     public int getAllCells() { return allCells; }
-//    public int getTotalMines() { return mines; }
+    public int getTotalMines() { return mines; }
 
     public void setFieldForTesting(int[] testField) { this.field = testField.clone(); }
     public void setInGame(boolean inGame) { this.inGame = inGame; }
     public boolean isGameWon() { return gameWon; }
     public void setGameWon(boolean gameWon) { this.gameWon = gameWon; }
-    public void setCurrentPlayer(int currentPlayer) { this.currentPlayer = currentPlayer; }
+    public void setCurrentPlayer(int p) { this.currentPlayer = p; }
     public void setMinesLeft(int minesLeft) { this.minesLeft = minesLeft; }
 
-    class MinesAdapter extends MouseAdapter {
-    	@Override
-    	public void mousePressed(MouseEvent e) {
-    	    if (!isInGame()) {
-    	        newGame();
-    	        return;
-    	    }
-
-    	    int x = e.getX();
-    	    int y = e.getY();
-    	    int cCol = x / CELL_SIZE;
-    	    int cRow = y / CELL_SIZE;
-    	    if (cRow < 0 || cCol < 0 || cRow >= rows || cCol >= cols) return;
-
-    	    int pos = cRow * cols + cCol;
-    	    boolean repaintNeeded = false;
-    	    boolean validMove = false;
-
-    	    if (e.getButton() == MouseEvent.BUTTON3) {
-    	        if (field[pos] <= MINE_CELL) return;
-
-    	        boolean isFlagged = (field[pos] >= 20);
-
-    	        if (isFlagged) {
-    	            if (markers[pos] == currentPlayer) {
-    	                field[pos] -= MARK_FOR_CELL;
-    	                markers[pos] = -1;
-    	                playerFlags[currentPlayer]--;
-    	                setMinesLeft(getMinesLeft() + 1);
-    	                validMove = true;
-    	                repaintNeeded = true;
-    	                // NO PLAYER SWITCH ON UNFLAG!
-    	            }
-    	        } else {
-    	            if (field[pos] < 20) {
-    	                field[pos] += MARK_FOR_CELL;
-    	                markers[pos] = currentPlayer;
-    	                playerFlags[currentPlayer]++;
-    	                setMinesLeft(getMinesLeft() - 1);
-    	                validMove = true;
-    	                repaintNeeded = true;
-    	                // NO PLAYER SWITCH ON FLAG!
-    	            }
-    	        }
-    	    }
-    	    else if (e.getButton() == MouseEvent.BUTTON1) {
-    	        if (field[pos] < COVER_FOR_CELL || field[pos] >= 20) return;
-
-    	        field[pos] -= COVER_FOR_CELL;
-    	        repaintNeeded = true;
-    	        validMove = true;
-
-    	        if (field[pos] == MINE_CELL) {
-    	            setInGame(false);
-    	            validMove = false;
-    	        } else if (field[pos] == EMPTY_CELL) {
-    	            findEmptyCells(pos);
-    	        }
-
-    	        // ONLY REVEAL ENDS TURN
-    	        if (validMove && isInGame()) {
-    	            setCurrentPlayer(1 - currentPlayer);
-    	        }
-    	    }
-
-    	    if (repaintNeeded) {
-    	        repaint();
-    	    }
-    	}
-    }
-    
- // Add this method to Board.java (at the end, with other public methods)
     public void simulateMousePress(MouseEvent e) {
-        // This forwards the event to the actual MinesAdapter
-        for (MouseListener listener : getMouseListeners()) {
-            listener.mousePressed(e);
+        for (java.awt.event.MouseListener l : getMouseListeners()) {
+            l.mousePressed(e);
+        }
+    }
+
+    class MinesAdapter extends MouseAdapter {
+        @Override
+        public void mousePressed(MouseEvent e) {
+            if (!isInGame()) {
+                newGame();
+                return;
+            }
+
+            int x = e.getX();
+            int y = e.getY();
+            int cCol = x / CELL_SIZE;
+            int cRow = y / CELL_SIZE;
+            if (cRow < 0 || cCol < 0 || cRow >= rows || cCol >= cols) return;
+
+            int pos = cRow * cols + cCol;
+            boolean repaintNeeded = false;
+            boolean validMove = false;
+
+            if (e.getButton() == MouseEvent.BUTTON3) {
+                if (field[pos] <= MINE_CELL) return;
+
+                boolean isFlagged = (field[pos] >= 20);
+
+                if (isFlagged) {
+                    if (markers[pos] == currentPlayer) {
+                        field[pos] -= MARK_FOR_CELL;
+                        markers[pos] = -1;
+                        playerFlags[currentPlayer]--;
+                        setMinesLeft(getMinesLeft() + 1);
+                        repaintNeeded = true;
+                    }
+                } else {
+                    if (field[pos] < 20) {
+                        field[pos] += MARK_FOR_CELL;
+                        markers[pos] = currentPlayer;
+                        playerFlags[currentPlayer]++;
+                        setMinesLeft(getMinesLeft() - 1);
+                        repaintNeeded = true;
+                    }
+                }
+            }
+            else if (e.getButton() == MouseEvent.BUTTON1) {
+                if (field[pos] < COVER_FOR_CELL || field[pos] >= 20) return;
+
+                field[pos] -= COVER_FOR_CELL;
+                repaintNeeded = true;
+                validMove = true;
+
+                if (field[pos] == MINE_CELL) {
+                    setInGame(false);
+                    validMove = false;
+                } else if (field[pos] == EMPTY_CELL) {
+                    findEmptyCells(pos);
+                }
+
+                if (validMove && isInGame()) {
+                    setCurrentPlayer(1 - currentPlayer);
+                }
+            }
+
+            if (repaintNeeded) repaint();
         }
     }
 }

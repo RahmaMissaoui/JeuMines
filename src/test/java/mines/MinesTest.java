@@ -13,37 +13,36 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import static org.awaitility.Awaitility.await;
+import static java.util.concurrent.TimeUnit.SECONDS;
+
 /**
  * Test class for Mines (main application frame)
  */
-public class MinesTest {
+class MinesTest {
 
     private Mines mines;
     private Thread uiThread;
 
     @BeforeEach
-    public void setUp() throws InterruptedException, InvocationTargetException {
-        // Use CountDownLatch to ensure the GUI is created on EDT
+    void setUp() throws InterruptedException, InvocationTargetException {
         CountDownLatch latch = new CountDownLatch(1);
-        
+
         SwingUtilities.invokeAndWait(() -> {
             mines = new Mines();
             latch.countDown();
         });
-        
-        // Wait for GUI to be created
+
         assertTrue(latch.await(2, TimeUnit.SECONDS), "GUI should be created within 2 seconds");
-        
-        // Give the GUI some time to initialize completely
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+
+        // Replace Thread.sleep() with this:
+        await().atMost(2, SECONDS)
+               .pollInterval(100, TimeUnit.MILLISECONDS)
+               .until(() -> mines.isVisible() && mines.getContentPane().getComponentCount() > 0);
     }
 
     @AfterEach
-    public void tearDown() {
+    void tearDown() {
         if (mines != null) {
             SwingUtilities.invokeLater(() -> {
                 mines.setVisible(false);
@@ -57,7 +56,7 @@ public class MinesTest {
 
     @Test
     @Timeout(5)
-    public void testMinesFrameInitialization() {
+    void testMinesFrameInitialization() {
         SwingUtilities.invokeLater(() -> {
             // Test frame title
             assertEquals("Winesweeper", mines.getTitle(), "Frame title should be 'Winesweeper'");
@@ -79,7 +78,7 @@ public class MinesTest {
 
     @Test
     @Timeout(5)
-    public void testMinesFrameVisibility() {
+    void testMinesFrameVisibility() {
         SwingUtilities.invokeLater(() -> {
             assertTrue(mines.isVisible(), "Mines frame should be visible after construction");
         });
@@ -87,7 +86,7 @@ public class MinesTest {
 
     @Test
     @Timeout(5)
-    public void testMinesFrameComponents() {
+    void testMinesFrameComponents() {
         SwingUtilities.invokeLater(() -> {
             // Test that Board component is added
             Component[] components = mines.getContentPane().getComponents();
@@ -113,7 +112,7 @@ public class MinesTest {
 
     @Test
     @Timeout(5)
-    public void testMinesFrameLayout() {
+    void testMinesFrameLayout() {
         SwingUtilities.invokeLater(() -> {
             LayoutManager layout = mines.getContentPane().getLayout();
             assertTrue(layout instanceof BorderLayout, 
@@ -123,7 +122,7 @@ public class MinesTest {
 
     @Test
     @Timeout(5)
-    public void testMinesFrameLocation() {
+    void testMinesFrameLocation() {
         SwingUtilities.invokeLater(() -> {
             // Frame should be centered (location relative to null)
             // Note: We can't test exact coordinates as they depend on screen size
@@ -142,8 +141,7 @@ public class MinesTest {
 
     @Test
     @Timeout(5)
-    public void testMainMethod() throws InterruptedException {
-        // Test that main method doesn't throw exceptions
+    void testMainMethod() {                     // ← no throws clause!
         Thread mainThread = new Thread(() -> {
             try {
                 Mines.main(new String[]{});
@@ -151,40 +149,30 @@ public class MinesTest {
                 fail("Main method should not throw exceptions: " + e.getMessage());
             }
         });
-        
+
         mainThread.start();
-        
-        // Wait a bit for main to initialize
-        Thread.sleep(1000);
-        
-        // Interrupt and clean up
+
+        await().atMost(3, SECONDS)
+               .until(() -> mines != null && mines.isVisible());
+
+        mainThread.interrupt(); // safe – no need to declare anything
+    }
+
+    @Test
+    @Timeout(5)
+    void testMainMethodWithNullArgs() {         // ← no throws!
+        Thread mainThread = new Thread(() -> Mines.main(null));
+        mainThread.start();
+
+        await().atMost(3, SECONDS)
+               .until(() -> mines != null && mines.isVisible());
+
         mainThread.interrupt();
     }
 
     @Test
     @Timeout(5)
-    public void testMainMethodWithNullArgs() throws InterruptedException {
-        // Test main method with null arguments
-        Thread mainThread = new Thread(() -> {
-            try {
-                Mines.main(null);
-            } catch (Exception e) {
-                fail("Main method should handle null arguments: " + e.getMessage());
-            }
-        });
-        
-        mainThread.start();
-        
-        // Wait a bit for main to initialize
-        Thread.sleep(1000);
-        
-        // Interrupt and clean up
-        mainThread.interrupt();
-    }
-
-    @Test
-    @Timeout(5)
-    public void testFrameDisposal() {
+    void testFrameDisposal() {
         SwingUtilities.invokeLater(() -> {
             assertFalse(mines.isDisplayable(), "Frame should not be disposed initially");
             
@@ -198,7 +186,7 @@ public class MinesTest {
 
     @Test
     @Timeout(5)
-    public void testMinesInstanceCreation() {
+    void testMinesInstanceCreation() {
         // Test that multiple instances can be created
         assertDoesNotThrow(() -> {
             SwingUtilities.invokeAndWait(() -> {
@@ -211,7 +199,7 @@ public class MinesTest {
 
     @Test
     @Timeout(5)
-    public void testComponentHierarchy() {
+    void testComponentHierarchy() {
         SwingUtilities.invokeLater(() -> {
             // Verify the component hierarchy
             Container contentPane = mines.getContentPane();
