@@ -5,6 +5,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import javax.swing.JLabel;
 
+import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -466,5 +467,38 @@ public class BoardTest {
         assertEquals(Board.getDrawMine(), calcGameOver.invoke(b, Board.getCoveredMineCell(), -1));
         assertEquals(Board.getDrawMarkP1(), calcGameOver.invoke(b, Board.getCoveredMineCell() + 10, 0));
         assertEquals(Board.getDrawWrongMarkP2(), calcGameOver.invoke(b, 25, 1));
+    }
+    
+    @Test
+    void testRightClickFlagAndUnflag() {
+        int[] safeField = new int[256];
+        Arrays.fill(safeField, Board.getCoverForCell());
+        board.setFieldForTesting(safeField);
+        board.setMinesLeft(40);
+        board.setInGame(true);
+        board.setCurrentPlayer(0);
+
+        int initial = board.getMinesLeft();
+
+        simulateRightClick(board, 5, 5);
+        assertEquals(initial - 1, board.getMinesLeft());
+
+        simulateRightClick(board, 5, 5);
+        assertEquals(initial, board.getMinesLeft());
+    }
+//    private void simulateLeftClick(Board board, int row, int col) {
+//        int x = col * 15 + 7;
+//        int y = row * 15 + 7;
+//        MouseEvent e = new MouseEvent(board, MouseEvent.MOUSE_PRESSED,
+//                System.currentTimeMillis(), 0, x, y, 1, false, MouseEvent.BUTTON1);  // Fixed: BUTTON1 not BUITON1
+//        board.simulateMousePress(e);  // Fixed: simulateMousePress not simulateHousePress
+//    }
+
+    private void simulateRightClick(Board board, int row, int col) {
+        int x = col * 15 + 7;
+        int y = row * 15 + 7;
+        MouseEvent e = new MouseEvent(board, MouseEvent.MOUSE_PRESSED,
+                System.currentTimeMillis(), 0, x, y, 1, false, MouseEvent.BUTTON3);  // Fixed: BUTTON3 not BUITON3
+        board.simulateMousePress(e);  // Fixed: simulateMousePress not simulateHousePress
     }
 }
